@@ -1,5 +1,5 @@
 import { Transaction } from '../transaction';
-import * as moment from 'moment';
+import moment from 'moment';
 
 //
 // These are the headers verbatim out of the iTrade
