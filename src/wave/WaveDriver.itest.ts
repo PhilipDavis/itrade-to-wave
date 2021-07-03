@@ -1,23 +1,25 @@
-import { WaveDriver } from "./WaveDriver";
 import * as dotenv from 'dotenv';
+import { WaveDriver } from "./WaveDriver";
 
 dotenv.config();
+
+// Some tests could potentially run for a long time.
+jest.setTimeout(90000);
 
 describe('WaveDriver', () => {
     let wave: WaveDriver;
 
-    beforeEach(async () => {
-        wave = new WaveDriver();
-        await wave.launch();
-    });
-
     afterEach(async () => {
-        await wave.close();
+        wave && await wave.close();
     });
 
-    it('can login', async () => {
+    it('can login and load the transaction page', async () => {
         expect(process.env.WAVE_LOGIN).toBeDefined();
         expect(process.env.WAVE_PASSWORD).toBeDefined();
-        await wave.login(process.env.WAVE_LOGIN, process.env.WAVE_PASSWORD);
-    }, 30000);
+
+        wave = await WaveDriver.launch();
+        await wave.login(process.env.WAVE_LOGIN!, process.env.WAVE_PASSWORD!);
+
+        await wave.loadTransactionsPage();
+    });
 });

@@ -1,10 +1,13 @@
 import { Page } from "puppeteer";
+import { RequestWatcher } from "./RequestWatcher";
 
 export class PageHelper {
-    protected readonly page: Page;
+    public readonly page: Page;
+    private readonly requestWatcher: RequestWatcher;
 
     constructor(page: Page) {
         this.page = page;
+        this.requestWatcher = new RequestWatcher(page);
     }
     
     protected async waitForElementWithText(className: string, text: string, options?: { timeout?: number; polling?: string | number }) {
@@ -52,10 +55,17 @@ export class PageHelper {
 
         // Replace previous contents
         await field.type(value);
-        await this.delay(100);
+
+        // Give the page time to react (e.g. send data to server, redraw DOM, ...)
+        await this.delay(500);
+        await this.waitForNetworkIdle();
     }
 
     protected async delay(milliseconds: number) {
         await new Promise(resolve => setTimeout(resolve, milliseconds));
+    }
+
+    protected async waitForNetworkIdle() {
+        await this.requestWatcher.waitForNetworkIdle();
     }
 }
