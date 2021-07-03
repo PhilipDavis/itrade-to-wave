@@ -1,4 +1,4 @@
-import { ElementHandle, JSHandle, Page } from "puppeteer";
+import { Page } from "puppeteer";
 
 export class PageHelper {
     protected readonly page: Page;
