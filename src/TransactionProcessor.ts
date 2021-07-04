@@ -110,7 +110,7 @@ export class TransactionProcessor {
         // Remove the sold shares from the adjusted cost base.
         // Note: calculate using qty and unitPrice because the settlementAmount
         // includes the trading fee, which should not be removed from ACB.
-        // Rather, trading fee eats into the gains because we're trating
+        // Rather, trading fee eats into the gains because we're treating
         // the gains as income, not capital gain.
         //
         this.adjustedCostBases[tx.symbol] = acb - (tx.qty * acbPerShare);
