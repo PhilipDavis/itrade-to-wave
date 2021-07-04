@@ -4,6 +4,12 @@ export type TransactionType =
     | 'CASH DIV'
     | 'REI'
 ;
+export const TransactionType = {
+    Buy: 'BUY' as TransactionType,
+    Sell: 'SELL' as TransactionType,
+    CashDiv: 'CASH DIV' as TransactionType,
+    Held: 'REI' as TransactionType,
+} as const;
 
 export type Currency =
     'CAD'

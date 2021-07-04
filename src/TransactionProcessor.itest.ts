@@ -1,14 +1,19 @@
 import * as dotenv from 'dotenv';
 import { WaveDriver } from "./wave/WaveDriver";
 import { TransactionProcessor } from './TransactionProcessor';
+import { TransactionsPage } from './wave/TransactionsPage';
 
 dotenv.config();
 
 // Some tests could potentially run for a long time.
 jest.setTimeout(90000);
 
+const cashAccountName = process.env.WAVE_CASH_ACCOUNT!;
+const equitiesAccountName = process.env.WAVE_EQUITIES_ACCOUNT!;
+
 describe('WaveDriver', () => {
     let wave: WaveDriver;
+    let txPage: TransactionsPage;
     let processor: TransactionProcessor;
 
     // Launch the browser once at the beginning.
@@ -20,12 +25,13 @@ describe('WaveDriver', () => {
     beforeAll(async () => {
         expect(process.env.WAVE_LOGIN).toBeDefined();
         expect(process.env.WAVE_PASSWORD).toBeDefined();
+        expect(process.env.WAVE_CASH_ACCOUNT).toBeDefined();
+        expect(process.env.WAVE_EQUITIES_ACCOUNT).toBeDefined();
 
         wave = await WaveDriver.launch();
         await wave.login(process.env.WAVE_LOGIN!, process.env.WAVE_PASSWORD!);
         
-        const txPage = await wave.loadTransactionsPage();
-        processor = new TransactionProcessor(txPage);
+        txPage = await wave.loadTransactionsPage();
     });
 
     afterAll(async () => {
@@ -48,20 +54,83 @@ describe('WaveDriver', () => {
 
 
     it('can record a stock sale', async () => {
-        await processor.recordStockSale(new Date(2021, 6, 1), '*** TEST STOCK SALE ***', 100, 'Scotia iTRADE', 'Securities', 0.05, 0.04, 'This is a test entry');
+        const symbol = '*** TEST STOCK SALE ***';
+        const acb = { [symbol]: 2.00 };
+        const qty = { [symbol]: 100 };
+        const processor = new TransactionProcessor(txPage, cashAccountName, equitiesAccountName, acb, qty);
 
-        await expectRow('.transactions-list-v2__row--journal', 'Jul 1, 2021', 'Sell 100 *** TEST STOCK SALE ***', 'Journal entry', '$0.05');
+        await processor.process({
+            desc: 'This is a test entry',
+            symbol,
+            transactionDate: new Date(2021, 6, 1),
+            settlementDate: new Date(2021, 6, 3),
+            accountCurrency: 'CAD',
+            type: 'SELL',
+            qty: 100,
+            currency: 'CAD',
+            unitPrice: 0.015,
+            settlementAmount: 1.50,
+        });
+
+        // Verify the row appears in the transaction list
+        await expectRow('.transactions-list-v2__row--journal', 'Jul 1, 2021', 'Sell 100 *** TEST STOCK SALE ***', 'Journal entry', '$2.00');
+
+        // Verify the ACB and Quantity are updated
+        expect(acb).toHaveProperty(symbol, 0);
+        expect(qty).toHaveProperty(symbol, 0);
     });
 
     it('can record a cash dividend', async () => {
-        await processor.recordCashDividend(new Date(2021, 6, 1), '*** TEST CASH DIV ***', 100, 'Scotia iTRADE', 0.04, '*** TEST *** CASH DIV  ON     100 SHS REC 06/01/21 PAY 07/01/21');
+        const symbol = '*** TEST CASH DIV ***';
+        const acb = { [symbol]: 0.80 };
+        const qty = { [symbol]: 200 };
+        const processor = new TransactionProcessor(txPage, cashAccountName, equitiesAccountName, acb, qty);
 
+        await processor.process({
+            // Note: quantity will be read from this description string, not the qty field nor the current stock qty!
+            desc: 'TEST ENTRY CASH DIV  ON     100 SHS REC 06/01/21 PAY 07/01/21      ',
+            symbol,
+            transactionDate: new Date(2021, 6, 1),
+            settlementDate: new Date(2021, 6, 1),
+            accountCurrency: 'CAD',
+            type: 'CASH DIV',
+            qty: 0,
+            currency: 'CAD',
+            unitPrice: 0,
+            settlementAmount: 0.04,
+        });
+
+        // Verify the row appears in the transaction list
         await expectRow('.transactions-list-v2__row--journal', 'Jul 1, 2021', 'Dividend paid on 100 *** TEST CASH DIV ***', 'Journal entry', '$0.04');
+
+        // Verify the ACB and Quantity remain unchanged
+        expect(acb).toHaveProperty(symbol, 0.80);
+        expect(qty).toHaveProperty(symbol, 200);
     });
 
     it('can record a stock purchase', async () => {
-        await processor.recordStockPurchase(new Date(2021, 6, 1), '*** TEST STOCK BUY ***', 100, 'Scotia iTRADE', 'Securities', 0.05, 'This is a test entry');
+        const symbol = '*** TEST STOCK BUY ***';
+        const acb = { [symbol]: 2.00 };
+        const qty = { [symbol]: 100 };
+        const processor = new TransactionProcessor(txPage, cashAccountName, equitiesAccountName, acb, qty);
+        await processor.process({
+            desc: 'This is a test entry',
+            symbol,
+            transactionDate: new Date(2021, 6, 1),
+            settlementDate: new Date(2021, 6, 3),
+            accountCurrency: 'CAD',
+            type: 'BUY',
+            qty: 100,
+            currency: 'CAD',
+            unitPrice: 0.01,
+            settlementAmount: 1.00,
+        });
 
-        await expectRow('.transactions-list-v2__row', 'Jul 1, 2021', 'Buy 100 *** TEST STOCK BUY ***\nScotia iTRADE', 'Securities', '$0.05');
+        // Verify the row appears in the transaction list
+        await expectRow('.transactions-list-v2__row', 'Jul 1, 2021', 'Buy 100 *** TEST STOCK BUY ***\nScotia iTRADE', 'Securities', '$1.00');
+
+        // Verify the ACB and Quantity have been updated
+        expect(acb).toHaveProperty(symbol, 3.00);
+        expect(qty).toHaveProperty(symbol, 200);
     });
 });
