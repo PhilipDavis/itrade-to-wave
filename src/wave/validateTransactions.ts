@@ -1,4 +1,4 @@
-import { Transaction } from "../transaction";
+import { Transaction } from "../transactions/transaction";
 
 const ValidTransactions = [
     'BUY',

@@ -1,4 +1,4 @@
-import { Transaction } from "../transaction";
+import { Transaction } from "../transactions/transaction";
 import { validateTransactions } from "./validateTransactions";
 
 function makeTx(input: Partial<Transaction> = {}): Transaction {
