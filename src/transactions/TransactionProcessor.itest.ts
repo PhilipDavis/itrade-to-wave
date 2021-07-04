@@ -1,7 +1,8 @@
 import * as dotenv from 'dotenv';
-import { WaveDriver } from "./wave/WaveDriver";
+import { WaveDriver } from "../wave/WaveDriver";
 import { TransactionProcessor } from './TransactionProcessor';
-import { TransactionsPage } from './wave/TransactionsPage';
+import { TransactionsPage } from '../wave/TransactionsPage';
+import { Holding } from './holdings';
 
 dotenv.config();
 
@@ -14,7 +15,6 @@ const equitiesAccountName = process.env.WAVE_EQUITIES_ACCOUNT!;
 describe('WaveDriver', () => {
     let wave: WaveDriver;
     let txPage: TransactionsPage;
-    let processor: TransactionProcessor;
 
     // Launch the browser once at the beginning.
     // Typically, when integration testing we'd ideally
@@ -55,11 +55,10 @@ describe('WaveDriver', () => {
 
     it('can record a stock sale', async () => {
         const symbol = '*** TEST STOCK SALE ***';
-        const acb = { [symbol]: 2.00 };
-        const qty = { [symbol]: 100 };
-        const processor = new TransactionProcessor(txPage, cashAccountName, equitiesAccountName, acb, qty);
+        const holding: Holding = { acb: 2.00, qty: 100 };
+        const processor = new TransactionProcessor(txPage, cashAccountName, equitiesAccountName);
 
-        await processor.process({
+        const result = await processor.process({
             desc: 'This is a test entry',
             symbol,
             transactionDate: new Date(2021, 6, 1),
@@ -70,23 +69,24 @@ describe('WaveDriver', () => {
             currency: 'CAD',
             unitPrice: 0.015,
             settlementAmount: 1.50,
-        });
+        }, holding);
 
         // Verify the row appears in the transaction list
         await expectRow('.transactions-list-v2__row--journal', 'Jul 1, 2021', 'Sell 100 *** TEST STOCK SALE ***', 'Journal entry', '$2.00');
 
         // Verify the ACB and Quantity are updated
-        expect(acb).toHaveProperty(symbol, 0);
-        expect(qty).toHaveProperty(symbol, 0);
+        expect(result).toMatchObject({
+            acb: 0,
+            qty: 0,
+        });
     });
 
     it('can record a cash dividend', async () => {
         const symbol = '*** TEST CASH DIV ***';
-        const acb = { [symbol]: 0.80 };
-        const qty = { [symbol]: 200 };
-        const processor = new TransactionProcessor(txPage, cashAccountName, equitiesAccountName, acb, qty);
+        const holding: Holding = { acb: 0.80, qty: 200 };
+        const processor = new TransactionProcessor(txPage, cashAccountName, equitiesAccountName);
 
-        await processor.process({
+        const result = await processor.process({
             // Note: quantity will be read from this description string, not the qty field nor the current stock qty!
             desc: 'TEST ENTRY CASH DIV  ON     100 SHS REC 06/01/21 PAY 07/01/21      ',
             symbol,
@@ -98,22 +98,24 @@ describe('WaveDriver', () => {
             currency: 'CAD',
             unitPrice: 0,
             settlementAmount: 0.04,
-        });
+        }, holding);
 
         // Verify the row appears in the transaction list
         await expectRow('.transactions-list-v2__row--journal', 'Jul 1, 2021', 'Dividend paid on 100 *** TEST CASH DIV ***', 'Journal entry', '$0.04');
 
         // Verify the ACB and Quantity remain unchanged
-        expect(acb).toHaveProperty(symbol, 0.80);
-        expect(qty).toHaveProperty(symbol, 200);
+        expect(result).toMatchObject({
+            acb: 0.80,
+            qty: 200,
+        });
     });
 
     it('can record a stock purchase', async () => {
         const symbol = '*** TEST STOCK BUY ***';
-        const acb = { [symbol]: 2.00 };
-        const qty = { [symbol]: 100 };
-        const processor = new TransactionProcessor(txPage, cashAccountName, equitiesAccountName, acb, qty);
-        await processor.process({
+        const holding: Holding = { acb: 2.00, qty: 100 };
+        const processor = new TransactionProcessor(txPage, cashAccountName, equitiesAccountName);
+        
+        const result = await processor.process({
             desc: 'This is a test entry',
             symbol,
             transactionDate: new Date(2021, 6, 1),
@@ -123,14 +125,16 @@ describe('WaveDriver', () => {
             qty: 100,
             currency: 'CAD',
             unitPrice: 0.01,
-            settlementAmount: 1.00,
-        });
+            settlementAmount: 1.09,
+        }, holding);
 
         // Verify the row appears in the transaction list
         await expectRow('.transactions-list-v2__row', 'Jul 1, 2021', 'Buy 100 *** TEST STOCK BUY ***\nScotia iTRADE', 'Securities', '$1.00');
 
         // Verify the ACB and Quantity have been updated
-        expect(acb).toHaveProperty(symbol, 3.00);
-        expect(qty).toHaveProperty(symbol, 200);
+        expect(result).toMatchObject({
+            acb: 3.09,
+            qty: 200,
+        });
     });
 });

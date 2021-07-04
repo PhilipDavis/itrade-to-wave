@@ -1,5 +1,6 @@
 import { Transaction, TransactionType } from "./transaction";
-import { JournalLine, TransactionsPage } from "./wave/TransactionsPage";
+import { JournalLine, TransactionsPage } from "../wave/TransactionsPage";
+import { Holding } from "./holdings";
 
 export interface TransactionProcessor {
     on(event: 'acb-changed', handler: (acb: number) => void): TransactionProcessor;
@@ -9,44 +10,39 @@ export class TransactionProcessor {
     private readonly txPage: TransactionsPage;
     private readonly cashAccount: string;
     private readonly equitiesAccount: string;
-    private readonly adjustedCostBases: Record<string, number>;
-    private readonly stockQuantities: Record<string, number>;
 
-    constructor(txPage: TransactionsPage, cashAccount: string, equitiesAccount: string, adjustedCostBases: Record<string, number>, stockQuantities: Record<string, number>) {
+    constructor(txPage: TransactionsPage, cashAccount: string, equitiesAccount: string) {
         this.txPage = txPage;
         this.cashAccount = cashAccount;
         this.equitiesAccount = equitiesAccount;
-        this.adjustedCostBases = adjustedCostBases;
-        this.stockQuantities = stockQuantities;
     }
 
-    async process(tx: Transaction) {
+    async process(tx: Transaction, holding: Holding): Promise<Holding> {
         switch (tx.type) {
             case TransactionType.Buy:
-                await this.recordStockPurchase(tx);
-                break;
+                return await this.recordStockPurchase(tx, holding);
             
             case TransactionType.Sell:
-                await this.recordStockSale(tx);
-                break;
+                return await this.recordStockSale(tx, holding);
 
             case TransactionType.CashDiv:
-                await this.recordCashDividend(tx);
-                break;
+                return await this.recordCashDividend(tx, holding);
 
             case TransactionType.Held:
                 // Funds being held/released for reinvestment.
                 // These transactions are just informational and don't get
                 // sent to Wave because nothing is moving between accounts.
-                break;
+                return holding;
 
             default:
                 throw new Error(`Unsupported transaction type ${tx.type}`);
         }
     }
 
-    private async recordStockPurchase(tx: Transaction) {
+    private async recordStockPurchase(tx: Transaction, holding: Holding) {
         const description = `Buy ${tx.qty} ${tx.symbol}`;
+
+        // Send the transaction to Wave
         await this.txPage.addExpense(tx.transactionDate, description, this.cashAccount, this.equitiesAccount, tx.settlementAmount, tx.desc);
 
         // Add the transaction settlement amount to the adjusted cost base for this stock.
@@ -54,31 +50,20 @@ export class TransactionProcessor {
         // the ACB because we're treating everything as income rather than capital gains.
         // This is not accounting advice. Do something different if you're holding stocks
         // for a long time... because capital gains are more tax-efficient than income. 
-        const acb = this.adjustedCostBases[tx.symbol] || 0;
-        this.adjustedCostBases[tx.symbol] = acb + Math.abs(tx.settlementAmount);
-
-        const qty = this.stockQuantities[tx.symbol] || 0;
-        this.stockQuantities[tx.symbol] = qty + tx.qty;
+        return {
+            acb: holding.acb + Math.abs(tx.settlementAmount),
+            qty: holding.qty + tx.qty,
+        };
     }
 
-    private async recordStockSale(tx: Transaction) {
+    private async recordStockSale(tx: Transaction, holding: Holding) {
         const description = `Sell ${tx.qty} ${tx.symbol}`;
-
-        const acb = this.adjustedCostBases[tx.symbol];
-        if (!acb) {
-            throw new Error(`Missing ACB for stock ${tx.symbol}`);
-        }
-
-        const qty = this.stockQuantities[tx.symbol];
-        if (!qty) {
-            throw new Error(`Missing quantity for stock ${tx.symbol}`);
-        }
 
         // Take the number of shares sold and calculate how much of
         // our total book value that accounts for. That amount will
         // be used to calculate the realized gains/losses.
         // Round to the nearest cent.
-        const acbPerShare = acb / qty;
+        const acbPerShare = holding.acb / holding.qty;
         const costAmount = Math.round(tx.qty * acbPerShare * 100) / 100;
 
         const journalLines: JournalLine[] = [
@@ -104,6 +89,7 @@ export class TransactionProcessor {
             });
         }
 
+        // Send the transaction to Wave
         await this.txPage.addJournalTransaction(tx.transactionDate, description, tx.desc, journalLines);
 
         //
@@ -113,12 +99,13 @@ export class TransactionProcessor {
         // Rather, trading fee eats into the gains because we're treating
         // the gains as income, not capital gain.
         //
-        this.adjustedCostBases[tx.symbol] = acb - (tx.qty * acbPerShare);
-
-        this.stockQuantities[tx.symbol] = qty - tx.qty;
+        return {
+            acb: holding.acb - (tx.qty * acbPerShare),
+            qty: holding.qty - tx.qty,
+        };
     }
 
-    async recordCashDividend(tx: Transaction) {
+    async recordCashDividend(tx: Transaction, holding: Holding) {
         // Read quantity from the description because iTrade does not put it in the quantity field
         const regex = /CASH DIV\s+ON\s+(\d+) SHS REC \d\d\/\d\d\/\d\d PAY \d\d\/\d\d\/\d\d/;
         const match = regex.exec(tx.desc);
@@ -142,6 +129,9 @@ export class TransactionProcessor {
             },            
         ];
 
+        // Send the transaction to Wave
         await this.txPage.addJournalTransaction(tx.settlementDate, description, tx.desc, journalLines);
+
+        return holding;
     }
 }
