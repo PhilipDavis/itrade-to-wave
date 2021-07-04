@@ -1,4 +1,7 @@
 import * as dotenv from 'dotenv';
+import { StateManager } from './transactions/StateManager';
+import { TransactionType } from './transactions/transaction';
+import { TransactionProcessor } from './transactions/TransactionProcessor';
 import { WaveDriver } from './wave/WaveDriver';
 
 dotenv.config();
@@ -13,29 +16,42 @@ process.stdin
     })
     .resume();
 
-const login = process.env.WAVE_LOGIN;
-if (!login) {
-    throw new Error('Missing WAVE_LOGIN environment parameter');
-}
+const loadEnv = (name: string) => process.env[name] || (() => { throw new Error(`Missing ${name} environment parameter`) })();
 
-const password = process.env.WAVE_PASSWORD;
-if (!password) {
-    throw new Error('Missing WAVE_PASSWORD environment parameter');
-}
+const login = loadEnv('WAVE_LOGIN');
+const password = loadEnv('WAVE_PASSWORD');
+const cashAccountName = loadEnv('WAVE_CASH_ACCOUNT');
+const equitiesAccountName = loadEnv('WAVE_EQUITIES_ACCOUNT');
+const transactionsCsvFilename = loadEnv('CSV');
+const holdingsJsonFilename = loadEnv('HOLDINGS_JSON');
+
 
 (async () => {
     let exitCode = 0;
+
+    const stateManager = await StateManager.loadFromDisk(transactionsCsvFilename, holdingsJsonFilename);
 
     const waveDriver = await WaveDriver.launch();
     try {
         await waveDriver.login(login, password);
         const txPage = await waveDriver.loadTransactionsPage();
 
-        //await txPage.addExpense(new Date(2021, 6, 1), 'TEST ENTRY', 'Scotia iTRADE', 'Securities', 0.01);
-        await txPage.addJournalTransaction(new Date(2021, 5, 5), 'TEST ENTRY', 'Scotia iTRADE' ,'Securities', 'Realized Gains/Losses', 0.03, 0.02);
+        const txProcessor = new TransactionProcessor(txPage, cashAccountName, equitiesAccountName);
+
+        while (true) {
+            const done = await stateManager.withNextTransaction(async (tx, holding) => {
+                tx.type === TransactionType.CashDiv
+                    ? console.log(`Processing ${tx.type} ${tx.symbol} $${tx.settlementAmount}...`)
+                    : console.log(`Processing ${tx.type} ${tx.qty} ${tx.symbol}...`);
+                return await txProcessor.process(tx, holding);
+            });
+            if (done) {
+                break;
+            }
+        }
     }
     catch (err) {
-        process.stdout.write(err.message);
+        console.error(err.message);
         exitCode = 1;
     }
     finally {
