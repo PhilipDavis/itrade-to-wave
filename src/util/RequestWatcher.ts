@@ -15,7 +15,11 @@ type Waiter = {
 };
 
 //
-// Helper class to determine when there are no active network requests
+// Helper class to determine when there are no active network requests.
+// We often want to wait for network idle because I encountered cases
+// where typing text into a field was interrupted -- and it seemed like
+// the cause was React updating the page after performing some network
+// requests.
 //
 export class RequestWatcher {
     private activeCount: number = 0;

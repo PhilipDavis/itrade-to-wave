@@ -1,6 +1,11 @@
 import { Page } from "puppeteer";
 import { RequestWatcher } from "./RequestWatcher";
 
+//
+// Helper base class that implements several useful functions that are
+// missing from the Puppeteer API -- namely, the ability to locate an
+// element by its contents.
+//
 export class PageHelper {
     public readonly page: Page;
     private readonly requestWatcher: RequestWatcher;
