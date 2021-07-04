@@ -1,6 +1,4 @@
-import { parseCsv } from "./parseCsv";
-
-const StandardHeader = 'Description,Symbol,Transaction Date,Settlement Date,Account Currency,Type,Quantity,Currency of Price,Price,Settlement Amount';
+import { parseCsv, StandardHeader } from "./parseCsv";
 
 describe('parseCsv', () => {
     describe('transaction types', () => {

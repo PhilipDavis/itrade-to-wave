@@ -1,5 +1,7 @@
-import { Transaction } from '../transaction';
+import { Transaction } from '../transactions/transaction';
 import moment from 'moment';
+
+export const StandardHeader = 'Description,Symbol,Transaction Date,Settlement Date,Account Currency,Type,Quantity,Currency of Price,Price,Settlement Amount';
 
 //
 // These are the headers verbatim out of the iTrade
