@@ -11,7 +11,7 @@ import { Transaction } from './transaction';
 export class StateManager {
     private index: number = -1;
     private readonly transactions: Transaction[];
-    private readonly processed: Record<string, true>;
+    private readonly processed: Record<string, boolean>;
     private holdings: Holdings;
     private readonly appendProcessed: (line: string) => Promise<void>;
     private readonly updateHoldings: (h: Holdings) => Promise<void>;
@@ -19,7 +19,7 @@ export class StateManager {
 
     private constructor(
         transactions: Transaction[],
-        processed: Record<string, true>,
+        processed: Record<string, boolean>,
         holdings: Holdings,
         appendProcessed: (line: string) => Promise<void>,
         updateHoldings: (h: Holdings) => Promise<void>,
@@ -39,7 +39,7 @@ export class StateManager {
     //
     static async loadFromData(
         transactions: Transaction[],
-        processed: Record<string, true>,
+        processed: Record<string, boolean>,
         holdings: Holdings,
         appendProcessed: (line: string) => Promise<void>,
         updateHoldings: (h: Holdings) => Promise<void>,
