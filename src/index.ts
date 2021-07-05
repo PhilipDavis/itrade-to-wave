@@ -24,6 +24,7 @@ const cashAccountName = loadEnv('WAVE_CASH_ACCOUNT');
 const equitiesAccountName = loadEnv('WAVE_EQUITIES_ACCOUNT');
 const transactionsCsvFilename = loadEnv('CSV');
 const holdingsJsonFilename = loadEnv('HOLDINGS_JSON');
+const batchSize = parseInt(loadEnv('BATCH_SIZE'), 10);
 
 
 (async () => {
@@ -45,7 +46,7 @@ const holdingsJsonFilename = loadEnv('HOLDINGS_JSON');
                     : console.log(`Processing ${tx.type} ${tx.qty} ${tx.symbol}...`);
                 return await txProcessor.process(tx, holding);
             });
-            if (done) {
+            if ((++processedCount >= batchSize && batchSize > 0) || done) {
                 break;
             }
         }
