@@ -55,7 +55,7 @@ describe('RequestWatcher', () => {
             ]);
 
             expect(elapsed).toBeGreaterThanOrEqual(100);
-            expect(elapsed).toBeLessThan(130);
+            expect(elapsed).toBeLessThan(150);
         });
 
         it('throws an error on timeout', async() => {
@@ -72,7 +72,7 @@ describe('RequestWatcher', () => {
 
             await delay(100);
             expect(elapsed).toBeGreaterThanOrEqual(50);
-            expect(elapsed).toBeLessThan(90);
+            expect(elapsed).toBeLessThan(100);
         });
     });
 
@@ -136,13 +136,13 @@ describe('RequestWatcher', () => {
             ]);
 
             expect(elapsed1).toBeGreaterThanOrEqual(100);
-            expect(elapsed1).toBeLessThan(130);
+            expect(elapsed1).toBeLessThan(150);
 
             expect(elapsed2).toBeGreaterThanOrEqual(100);
-            expect(elapsed2).toBeLessThan(130);
+            expect(elapsed2).toBeLessThan(150);
 
             expect(elapsed3).toBeGreaterThanOrEqual(100);
-            expect(elapsed3).toBeLessThan(130);
+            expect(elapsed3).toBeLessThan(150);
         });
     });
 });
