@@ -1,54 +1,81 @@
-import { promises as fs } from 'fs';
-import { StandardHeader } from '../iTrade/parseCsv';
-import { StateManager } from "./StateManager";
 import { toCsv } from './toCsv';
+import { Transaction, TransactionType } from './transaction';
+import { makeTx } from '../util/makeTx';
+import { Holding, Holdings } from './holdings';
+import { StateManager } from './StateManager';
+
+const noOp = () => Promise.resolve();
 
 describe('StateManager', () => {
-    describe('loadFromDisk', () => {
-        afterEach(async () => {
-            // Delete all the files we created in the test
-            try { await fs.unlink('./test/unknown-transaction.processed.csv'); } catch (err) {}
+    describe('loadFromData', () => {
+        it('throws an error when an unsupported transaction type is detected', async () => {
+            const transactions = [
+                makeTx('BUY', 'FOO', 5),
+                makeTx('UNKNOWN' as TransactionType, 'FOO', 6),
+            ];
 
-            const filenames = await fs.readdir('./test/')
-            const myTestFilenames = filenames.filter(f => /^valid-holdings\.\d+\.json$/.test(f));
-            await Promise.all(myTestFilenames.map(f => fs.unlink(`./test/${f}`)));
-        });
-
-        it('throws an error when transaction file is missing', async () => {
-            expect(() => StateManager.loadFromDisk('./test/non-existent-filename.csv', './test/valid-holdings.json')).rejects.toThrowError();
-        });
-
-        it('rejects non-CSV transaction filenames', async () => {
-            expect(() => StateManager.loadFromDisk('./test/not-a-csv.txt', './test/valid-holdings.json')).rejects.toThrowError();
-        });
-
-        it('rejects non-JSON holdings filenames', async () => {
-            expect(() => StateManager.loadFromDisk('./test/valid-transactions.csv', './test/not-a-csv.txt')).rejects.toThrowError();
-        });
-
-        it('throws an error when an unknown transaction is found', async () => {
-            expect(() => StateManager.loadFromDisk('./test/unknown-transaction.csv', './test/valid-holdings.json')).rejects.toThrowError();
+            await expect(StateManager.loadFromData(transactions, {}, {}, noOp, noOp)).rejects.toThrowError();
         });
     });
 
     describe('withNextTransaction', () => {
-        let timestamp: number;
-        let holdingsJsonFilename: string;
-        let transactionsCsvFilename: string;
-        let processedCsvFilename: string;
+        describe('when there are ambiguous transactions', () => {
+            it('will throw an error', async() => {
+                const transactions = [
+                    makeTx('BUY', 'FOO', 1),
+                    makeTx('SELL', 'FOO', 1),
+                    makeTx('BUY', 'BAR', 1),
+                ];
+                const stateManager = await StateManager.loadFromData(transactions, {}, {}, noOp, noOp);
+                const spy = jest.fn((tx, holding) => Promise.resolve(holding));
 
-        beforeEach(() => {
-            timestamp = Date.now();
-            holdingsJsonFilename = `./test/holdings-${timestamp}.json`;
-            transactionsCsvFilename = `./test/tx-${timestamp}.csv`;
-            processedCsvFilename = `./test/tx-${timestamp}.processed.csv`;
+                await expect(stateManager.withNextTransaction(spy)).rejects.toThrowError();
+                expect(spy).not.toHaveBeenCalled();
+            });
         });
 
-        afterEach(async () => {
-            // Delete all the files we created in the test
-            const filenames = await fs.readdir('./test/')
-            const myTestFilenames = filenames.filter(f => f.indexOf(`-${timestamp}`) > 0);
-            await Promise.all(myTestFilenames.map(f => fs.unlink(`./test/${f}`)));
+        it('processes transactions chronologically', async () => {
+            // Arrange
+            const holdings = {
+                FOO: { acb: 1009.99, qty: 100 },
+                BAR: { acb: 2009.99, qty: 200 },
+            };
+            const transactions = [
+                makeTx('SELL', 'FOO', 20), // 20th of July
+                makeTx('BUY', 'FOO', 10),  // 10th of July
+            ];
+            const stateManager = await StateManager.loadFromData(transactions, {}, holdings, noOp, noOp);
+            const spy = jest.fn((tx: Transaction, h: Holding) => Promise.resolve(h));
+
+            // Act
+            await stateManager.withNextTransaction(spy);
+            await stateManager.withNextTransaction(spy);
+
+            // Assert
+            expect(spy.mock.calls[0][0]).toMatchObject({ type: 'BUY', symbol: 'FOO' });
+            expect(spy.mock.calls[1][0]).toMatchObject({ type: 'SELL', symbol: 'FOO' });
+        });
+
+        it('processes disambiguated transactions chronologically', async () => {
+            // Arrange
+            const holdings = {
+                FOO: { acb: 1009.99, qty: 100 },
+                BAR: { acb: 2009.99, qty: 200 },
+            };
+            const transactions = [
+                makeTx('SELL', 'FOO', 10, 2), // 10th of July, second order
+                makeTx('BUY', 'FOO', 10, 1),  // 10th of July, first order
+            ];
+            const stateManager = await StateManager.loadFromData(transactions, {}, holdings, noOp, noOp);
+            const spy = jest.fn((tx: Transaction, h: Holding) => Promise.resolve(h));
+
+            // Act
+            await stateManager.withNextTransaction(spy);
+            await stateManager.withNextTransaction(spy);
+
+            // Assert
+            expect(spy.mock.calls[0][0]).toMatchObject({ type: 'BUY', symbol: 'FOO' });
+            expect(spy.mock.calls[1][0]).toMatchObject({ type: 'SELL', symbol: 'FOO' });
         });
 
         describe('upon success', () => {
@@ -58,9 +85,11 @@ describe('StateManager', () => {
                     FOO: { acb: 1009.99, qty: 100 },
                     BAR: { acb: 2009.99, qty: 200 },
                 };
-                await fs.writeFile(holdingsJsonFilename, JSON.stringify(holdings));
-                await fs.writeFile(transactionsCsvFilename, `${StandardHeader}\nFOO CORP      ,FOO,04-Jul-2021,06-Jul-2021,CAD,BUY,200.00,CAD,10.000,-2009.99,`);
-                const stateManager = await StateManager.loadFromDisk(transactionsCsvFilename, holdingsJsonFilename);
+                const transactions = [
+                    makeTx('BUY', 'FOO', 4),
+                ];
+                const spy = jest.fn(noOp);
+                const stateManager = await StateManager.loadFromData(transactions, {}, holdings, noOp, spy);
 
                 // Act
                 await stateManager.withNextTransaction(async (tx, holding) => {
@@ -68,8 +97,7 @@ describe('StateManager', () => {
                 });
 
                 // Assert
-                const updatedHoldings = JSON.parse((await fs.readFile(holdingsJsonFilename)).toString());
-                expect(updatedHoldings).toMatchObject({
+                expect(spy).toHaveBeenCalledWith<[ Holdings ]>({
                     FOO: { acb: 3019.98, qty: 300 }, // This stock has been updated
                     BAR: { acb: 2009.99, qty: 200 },
                 });
@@ -82,9 +110,11 @@ describe('StateManager', () => {
                     FOO: { acb: 1009.99, qty: 100 },
                     BAR: { acb: 2009.99, qty: 200 },
                 };
-                await fs.writeFile(holdingsJsonFilename, JSON.stringify(holdings));
-                await fs.writeFile(transactionsCsvFilename, `${StandardHeader}\nFOO CORP      ,FOO,04-Jul-2021,06-Jul-2021,CAD,BUY,200.00,CAD,10.000,-2009.99,`);
-                const stateManager = await StateManager.loadFromDisk(transactionsCsvFilename, holdingsJsonFilename);
+                const transactions = [
+                    makeTx('BUY', 'FOO', 4),
+                ];
+                const spy = jest.fn(noOp);
+                const stateManager = await StateManager.loadFromData(transactions, {}, holdings, spy, noOp);
 
                 // Act
                 await stateManager.withNextTransaction(async (tx, holding) => {
@@ -93,8 +123,7 @@ describe('StateManager', () => {
                 });
 
                 // Assert
-                const updatedProcessed = (await fs.readFile(processedCsvFilename)).toString();
-                expect(updatedProcessed).toEqual(expected);
+                expect(spy).toHaveBeenCalledWith<[ string ]>(expected);
             });
 
             it('returns false when no more transactions', async () => {
@@ -103,9 +132,10 @@ describe('StateManager', () => {
                     FOO: { acb: 1009.99, qty: 100 },
                     BAR: { acb: 2009.99, qty: 200 },
                 };
-                await fs.writeFile(holdingsJsonFilename, JSON.stringify(holdings));
-                await fs.writeFile(transactionsCsvFilename, `${StandardHeader}\nFOO CORP      ,FOO,04-Jul-2021,06-Jul-2021,CAD,BUY,200.00,CAD,10.000,-2009.99,`);
-                const stateManager = await StateManager.loadFromDisk(transactionsCsvFilename, holdingsJsonFilename);
+                const transactions = [
+                    makeTx('BUY', 'FOO', 4),
+                ];
+                const stateManager = await StateManager.loadFromData(transactions, {}, holdings, noOp, noOp);
 
                 // Act
                 const result1 = await stateManager.withNextTransaction(async (tx, holding) => holding);
@@ -121,13 +151,14 @@ describe('StateManager', () => {
                 const holdings = {
                     FOO: { acb: 2009.99, qty: 200 },
                 };
-                await fs.writeFile(holdingsJsonFilename, JSON.stringify(holdings));
-                await fs.writeFile(transactionsCsvFilename, `${StandardHeader}\n`
-                    + 'FOO CORP      ,FOO,04-Jul-2021,06-Jul-2021,CAD,BUY,200.00,CAD,10.000,-2009.99,\n'
-                    + 'FOO CORP      ,FOO,05-Jul-2021,07-Jul-2021,CAD,BUY,100.00,CAD,10.000,-1009.99,\n'
-                );
-                await fs.writeFile(processedCsvFilename, 'FOO CORP,FOO,04-Jul-2021,06-Jul-2021,CAD,BUY,200,CAD,10,-2009.99\n');
-                const stateManager = await StateManager.loadFromDisk(transactionsCsvFilename, holdingsJsonFilename);
+                const transactions = [
+                    makeTx('BUY', 'FOO', 4),
+                    makeTx('SELL', 'FOO', 5),
+                ];
+                const processed = {
+                    [toCsv(transactions[0]).trim()]: true,
+                };
+                const stateManager = await StateManager.loadFromData(transactions, processed, holdings, noOp, noOp);
                 const spy = jest.fn((tx, holding) => Promise.resolve(holding));
 
                 // Act
@@ -137,11 +168,8 @@ describe('StateManager', () => {
                 // Assert that we only received the second transaction
                 expect(spy).toBeCalledTimes(1);
                 expect(spy.mock.calls[0][0]).toMatchObject({
-                    desc: 'FOO CORP',
                     symbol: 'FOO',
-                    transactionDate: new Date(2021, 6, 5),
-                    qty: 100,
-                    settlementAmount: -1009.99,
+                    type: 'SELL'
                 });
             });
         });
@@ -154,46 +182,48 @@ describe('StateManager', () => {
                     FOO: { acb: 1009.99, qty: 100 },
                     BAR: { acb: 2009.99, qty: 200 },
                 };
-                await fs.writeFile(holdingsJsonFilename, JSON.stringify(holdings));
-                await fs.writeFile(transactionsCsvFilename, `${StandardHeader}\nFOO CORP      ,FOO,04-Jul-2021,06-Jul-2021,CAD,BUY,200.00,CAD,10.000,-2009.99,`);
-                const stateManager = await StateManager.loadFromDisk(transactionsCsvFilename, holdingsJsonFilename);
+                const transactions = [
+                    makeTx('BUY', 'FOO', 4),
+                    makeTx('SELL', 'FOO', 5),
+                ];
+                const spy = jest.fn(noOp);
+                const stateManager = await StateManager.loadFromData(transactions, {}, holdings, spy, noOp);
 
                 // Act
                 try {
-                    await stateManager.withNextTransaction(tx => {
+                    await stateManager.withNextTransaction(async tx => {
                         throw new Error('FAIL!');
                     });
                 }
                 catch (err) {}
 
                 // Assert
-                const notUpdatedHoldings = JSON.parse((await fs.readFile(holdingsJsonFilename)).toString());
-                expect(notUpdatedHoldings).toMatchObject(holdings);
+                expect(spy).not.toHaveBeenCalled();
             });
 
             it("doesn't update processed", async () => {
                 // Arrange
-                let expected = ''; // Assigned later
                 const holdings = {
                     FOO: { acb: 1009.99, qty: 100 },
                     BAR: { acb: 2009.99, qty: 200 },
                 };
-                await fs.writeFile(holdingsJsonFilename, JSON.stringify(holdings));
-                await fs.writeFile(transactionsCsvFilename, `${StandardHeader}\nFOO CORP      ,FOO,04-Jul-2021,06-Jul-2021,CAD,BUY,200.00,CAD,10.000,-2009.99,`);
-                const stateManager = await StateManager.loadFromDisk(transactionsCsvFilename, holdingsJsonFilename);
+                const transactions = [
+                    makeTx('BUY', 'FOO', 4),
+                    makeTx('SELL', 'FOO', 5),
+                ];
+                const spy = jest.fn(noOp);
+                const stateManager = await StateManager.loadFromData(transactions, {}, holdings, noOp, spy);
 
                 // Act
                 try {
-                    await stateManager.withNextTransaction(tx => {
-                        expected = toCsv(tx);
+                    await stateManager.withNextTransaction(async tx => {
                         throw new Error('FAIL!');
                     });
                 }
                 catch (err) {}
 
                 // Assert
-                const updatedProcessed = (await fs.readFile(processedCsvFilename)).toString();
-                expect(updatedProcessed).not.toContain(expected);
+                expect(spy).not.toHaveBeenCalled();
             });
         });
     });

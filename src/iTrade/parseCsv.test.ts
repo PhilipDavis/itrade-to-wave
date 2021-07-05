@@ -48,6 +48,20 @@ describe('parseCsv', () => {
         });
     });
 
+    describe('order', () => {
+        it('has undefined order when absent', () => {
+            const csv = `${StandardHeader}\nACME CORP      ,ACME,28-Jun-2021,30-Jun-2021,CAD,BUY,200.00,CAD,10.000,-2009.99,`;
+            const [ result ] = parseCsv(csv);
+            expect(result).not.toHaveProperty('order');
+        });
+
+        it('has order when present', () => {
+            const csv = `${StandardHeader}\nACME CORP      ,ACME,28-Jun-2021,30-Jun-2021,CAD,BUY,200.00,CAD,10.000,-2009.99,3`;
+            const [ result ] = parseCsv(csv);
+            expect(result).toHaveProperty('order', 3);
+        });
+    });
+
     it('throws an error when an unknown column is found', () => {
         const csv = 'Description,Symbol,Transaction Date,Foo,Settlement Date,Account Currency,Type,Quantity,Currency of Price,Price,Settlement Amount\nACME CORP      ,ACME,28-Jun-2021,Bar,30-Jun-2021,CAD,SELL,200.00,CAD,10.000,1990.01,';
         expect(() => parseCsv(csv)).toThrowError('Unexpected column Foo');

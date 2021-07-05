@@ -62,6 +62,13 @@ export function parseCsv(input: string): Transaction[] {
             // Note: the iTrade CSV puts an extra comma at the end of each data
             // line (but not header line). Bail out when we run out of columns.
             if (i >= columnNames.length) {
+                // BUT... We are variably having an 'order' column appended to
+                // some rows (to disambiguate ordering of same-day buy and sells
+                // on the same symbol). So apply this value to the order field.
+                // Note: we did NOT add a column to the header row.
+                if (value.trim().length > 0) {
+                    return readNumber('order')(tx, value);
+                }
                 return tx;
             }
             const columnName = columnNames[i];

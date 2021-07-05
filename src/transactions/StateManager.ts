@@ -1,8 +1,10 @@
 import { promises as fs } from 'fs';
-import { isEqual, mapValues } from 'lodash';
+import { isEqual } from 'lodash';
+import { detectSameDayAmbiguities } from '../iTrade/detectSameDayAmbiguities';
 import { parseCsv } from '../iTrade/parseCsv';
 import { validateTransactions } from '../wave/validateTransactions';
 import { Holding, Holdings, newHolding } from './holdings';
+import { sortByDateSymbolAndOrder } from './sortByDateSymbolAndOrder';
 import { toCsv } from './toCsv';
 import { Transaction } from './transaction';
 
@@ -13,6 +15,7 @@ export class StateManager {
     private holdings: Holdings;
     private readonly appendProcessed: (line: string) => Promise<void>;
     private readonly updateHoldings: (h: Holdings) => Promise<void>;
+    readonly sameDayAmbiguities: ReadonlyArray<ReadonlyArray<Transaction>>;
 
     private constructor(
         transactions: Transaction[],
@@ -21,15 +24,18 @@ export class StateManager {
         appendProcessed: (line: string) => Promise<void>,
         updateHoldings: (h: Holdings) => Promise<void>,
     ) {
-        this.transactions = transactions;
+        this.transactions = [ ...transactions ].sort(sortByDateSymbolAndOrder);
         this.processed = processed;
         this.holdings = holdings;
         this.appendProcessed = appendProcessed;
         this.updateHoldings = updateHoldings;
+
+        this.sameDayAmbiguities = detectSameDayAmbiguities(transactions);
     }
 
     //
-    // Factory method for unit tests (so they don't have to access disk resources)
+    // Factory method to load data from memory
+    // (also used by unit tests so they don't have to access disk resources)
     //
     static async loadFromData(
         transactions: Transaction[],
@@ -42,6 +48,9 @@ export class StateManager {
         return new StateManager(transactions, processed, holdings, appendProcessed, updateHoldings);
     }
 
+    //
+    // Factory method to load data from disk
+    //
     static async loadFromDisk(transactionsCsvFilename: string, holdingsJsonFilename: string) {
         if (!/.+\.csv$/i.test(transactionsCsvFilename)) {
             throw new Error('Transaction file must be a .csv file');
@@ -55,13 +64,6 @@ export class StateManager {
         //
         const transactionsCsv = (await fs.readFile(transactionsCsvFilename)).toString('ascii');
         const transactions = parseCsv(transactionsCsv);
-
-        //
-        // Reverse the order because iTrade puts them in reverse-chronological
-        // order by default. Order doesn't really matter, but I think it makes
-        // more sense to enter the oldest first.
-        //
-        transactions.reverse();
 
         //
         // Load the list of processed transactions (so we know which of
@@ -108,6 +110,10 @@ export class StateManager {
     }
 
     async withNextTransaction(fn: (tx: Transaction, h: Holding) => Promise<Holding>): Promise<boolean> {
+        if (this.sameDayAmbiguities.length > 0) {
+            throw new Error('Resolve ambiguities before processing transactions');
+        }
+
         while (true) {
             // Advance; and bail out if we're done processing
             if (++this.index >= this.transactions.length) {
