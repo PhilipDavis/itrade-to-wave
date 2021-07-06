@@ -42,8 +42,17 @@ export class TransactionProcessor {
     private async recordStockPurchase(tx: Transaction, holding: Holding) {
         const description = `Buy ${tx.qty} ${tx.symbol}`;
 
+        const fee =
+            tx.unitPrice
+                ? -Math.round((tx.qty * tx.unitPrice + tx.settlementAmount) * 100) / 100 // regular purchase
+                : 0; // e.g. DRIP program
+        const notes =
+            tx.unitPrice
+                ? `${tx.desc}; Buy ${tx.qty} @ $${tx.unitPrice} + $${fee}`
+                : tx.desc; // These transactions have more-detailed descriptions... so use them verbatim 
+
         // Send the transaction to Wave
-        await this.txPage.addExpense(tx.transactionDate, description, this.cashAccount, this.equitiesAccount, tx.settlementAmount, tx.desc);
+        await this.txPage.addExpense(tx.transactionDate, description, this.cashAccount, this.equitiesAccount, tx.settlementAmount, notes);
 
         // Add the transaction settlement amount to the adjusted cost base for this stock.
         // Note that settlement amount includes the trading fee, which we're adding to
@@ -90,8 +99,11 @@ export class TransactionProcessor {
             });
         }
 
+        const fee = -Math.round((tx.settlementAmount + (tx.qty * tx.unitPrice)) * 100) / 100;
+        const notes = `${tx.desc}; Sell ${-tx.qty} @ $${tx.unitPrice} - $${fee}`;
+
         // Send the transaction to Wave
-        await this.txPage.addJournalTransaction(tx.transactionDate, description, tx.desc, journalLines);
+        await this.txPage.addJournalTransaction(tx.transactionDate, description, notes, journalLines);
 
         //
         // Remove the sold shares from the adjusted cost base.
