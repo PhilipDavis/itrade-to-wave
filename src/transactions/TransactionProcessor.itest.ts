@@ -65,7 +65,7 @@ describe('WaveDriver', () => {
             settlementDate: new Date(2021, 6, 3),
             accountCurrency: 'CAD',
             type: 'SELL',
-            qty: 100,
+            qty: -100,
             currency: 'CAD',
             unitPrice: 0.015,
             settlementAmount: 1.50,

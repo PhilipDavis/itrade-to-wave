@@ -73,7 +73,7 @@ const bad = `${Color.Bright}${Color.FgRed}✘${Color.Reset}`;
             const more = await stateManager.withNextTransaction(async (tx, holding) => {
                 tx.type === TransactionType.CashDiv
                     ? console.log(`Processing ${Color.Bright}${tx.type} ${tx.symbol} $${tx.settlementAmount}${Color.Reset}...`)
-                    : console.log(`Processing ${Color.Bright}${tx.type} ${tx.qty} ${tx.symbol}${Color.Reset}...`);
+                    : console.log(`Processing ${Color.Bright}${tx.type} ${Math.abs(tx.qty)} ${tx.symbol}${Color.Reset}...`);
                 
                 try {
                     return await txProcessor.process(tx, holding);

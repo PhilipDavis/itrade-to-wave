@@ -4,7 +4,7 @@ describe('parseCsv', () => {
     describe('transaction types', () => {
         const cases = [
             { expected: 'BUY',  line: 'ACME CORP      ,ACME,28-Jun-2021,30-Jun-2021,CAD,BUY,200.00,CAD,10.000,-2009.99,' },
-            { expected: 'SELL', line: 'ACME CORP      ,ACME,28-Jun-2021,30-Jun-2021,CAD,SELL,200.00,CAD,10.000,1990.01,' },
+            { expected: 'SELL', line: 'ACME CORP      ,ACME,28-Jun-2021,30-Jun-2021,CAD,SELL,-200.00,CAD,10.000,1990.01,' },
             { expected: 'CASH DIV', line: 'ACME CORP CASH DIV  ON     200 SHS REC 06/01/21 PAY 06/28/21      ,ACME,28-Jun-2021,30-Jun-2021,CAD,CASH DIV,0.00,CAD,0.000,2.50,' },
             { expected: 'REI',  line: 'ACME CORP FUNDS HELD FOR REINVESTMENT      ,ACME,28-Jun-2021,30-Jun-2021,CAD,REI,0.00,CAD,0.000,-2.50,' },
         ];
@@ -19,7 +19,7 @@ describe('parseCsv', () => {
     });
 
     it('parses valid transactions', () => {
-        const csv = `${StandardHeader}\nACME CORP      ,ACME,28-Jun-2021,30-Jun-2021,CAD,BUY,200.00,CAD,10.000,-2009.99,\nACME CORP      ,ACME,28-Jun-2021,30-Jun-2021,CAD,SELL,200.00,CAD,10.000,1990.01,`;
+        const csv = `${StandardHeader}\nACME CORP      ,ACME,28-Jun-2021,30-Jun-2021,CAD,BUY,200.00,CAD,10.000,-2009.99,\nACME CORP      ,ACME,28-Jun-2021,30-Jun-2021,CAD,SELL,-200.00,CAD,10.000,1990.01,`;
         const result = parseCsv(csv);
         expect(result).toHaveLength(2);
         expect(result[0]).toMatchObject({
@@ -41,7 +41,7 @@ describe('parseCsv', () => {
             settlementDate: new Date(2021, 5, 30),
             accountCurrency: 'CAD',
             type: 'SELL',
-            qty: 200,
+            qty: -200,
             currency: 'CAD',
             unitPrice: 10,
             settlementAmount: 1990.01,
@@ -63,12 +63,12 @@ describe('parseCsv', () => {
     });
 
     it('throws an error when an unknown column is found', () => {
-        const csv = 'Description,Symbol,Transaction Date,Foo,Settlement Date,Account Currency,Type,Quantity,Currency of Price,Price,Settlement Amount\nACME CORP      ,ACME,28-Jun-2021,Bar,30-Jun-2021,CAD,SELL,200.00,CAD,10.000,1990.01,';
+        const csv = 'Description,Symbol,Transaction Date,Foo,Settlement Date,Account Currency,Type,Quantity,Currency of Price,Price,Settlement Amount\nACME CORP      ,ACME,28-Jun-2021,Bar,30-Jun-2021,CAD,SELL,-200.00,CAD,10.000,1990.01,';
         expect(() => parseCsv(csv)).toThrowError('Unexpected column Foo');
     });
 
     it('throws an error when an expected column is missing', () => {
-        const csv = 'Description,Symbol,Settlement Date,Account Currency,Type,Quantity,Currency of Price,Price,Settlement Amount\nACME CORP      ,ACME,30-Jun-2021,CAD,SELL,200.00,CAD,10.000,1990.01,';
+        const csv = 'Description,Symbol,Settlement Date,Account Currency,Type,Quantity,Currency of Price,Price,Settlement Amount\nACME CORP      ,ACME,30-Jun-2021,CAD,SELL,-200.00,CAD,10.000,1990.01,';
         expect(() => parseCsv(csv)).toThrowError('Missing column Transaction Date');
     });
 });

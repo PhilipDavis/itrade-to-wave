@@ -57,14 +57,15 @@ export class TransactionProcessor {
     }
 
     private async recordStockSale(tx: Transaction, holding: Holding) {
-        const description = `Sell ${tx.qty} ${tx.symbol}`;
+        // Note: For SELL transactions, the qty field is negative
+        const description = `Sell ${-tx.qty} ${tx.symbol}`;
 
         // Take the number of shares sold and calculate how much of
         // our total book value that accounts for. That amount will
         // be used to calculate the realized gains/losses.
         // Round to the nearest cent.
         const acbPerShare = holding.acb / holding.qty;
-        const costAmount = Math.round(tx.qty * acbPerShare * 100) / 100;
+        const costAmount = Math.round(-tx.qty * acbPerShare * 100) / 100;
 
         const journalLines: JournalLine[] = [
             {
@@ -98,10 +99,11 @@ export class TransactionProcessor {
         // includes the trading fee, which should not be removed from ACB.
         // Rather, trading fee eats into the gains because we're treating
         // the gains as income, not capital gain.
+        // (also recall qty is negative here)
         //
         return {
-            acb: holding.acb - (tx.qty * acbPerShare),
-            qty: holding.qty - tx.qty,
+            acb: holding.acb + (tx.qty * acbPerShare),
+            qty: holding.qty + tx.qty,
         };
     }
 
