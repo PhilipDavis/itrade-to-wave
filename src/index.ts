@@ -43,6 +43,19 @@ const bad = `${Color.Bright}${Color.FgRed}✘${Color.Reset}`;
     console.log('Loading data...');
     const stateManager = await StateManager.loadFromDisk(transactionsCsvFilename, holdingsJsonFilename);
 
+    if (stateManager.sameDayAmbiguities.length > 0) {
+        console.log('Found ambiguous transactions!');
+        console.log('Please add an order number to the end of each line in these groups:');
+        stateManager.sameDayAmbiguities.forEach((group, i) => {
+            console.log(`Group #${Color.Bright}${Color.FgWhite}${i + 1}${Color.Reset}:`);
+            group.forEach(tx => {
+                console.log(`\t${toCsv(tx).trim()} ${tx.order === undefined ? bad : good}`);
+            });
+            console.log();
+        });
+        process.exit(2);
+    }
+
     console.log('Launching browser...');
     const waveDriver = await WaveDriver.launch();
     try {
