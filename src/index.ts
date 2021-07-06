@@ -70,7 +70,7 @@ const bad = `${Color.Bright}${Color.FgRed}✘${Color.Reset}`;
         console.log('Ready to begin');
         let processedCount = 0;
         while (true) {
-            const done = await stateManager.withNextTransaction(async (tx, holding) => {
+            const more = await stateManager.withNextTransaction(async (tx, holding) => {
                 tx.type === TransactionType.CashDiv
                     ? console.log(`Processing ${Color.Bright}${tx.type} ${tx.symbol} $${tx.settlementAmount}${Color.Reset}...`)
                     : console.log(`Processing ${Color.Bright}${tx.type} ${tx.qty} ${tx.symbol}${Color.Reset}...`);
@@ -82,7 +82,7 @@ const bad = `${Color.Bright}${Color.FgRed}✘${Color.Reset}`;
                     throw new Error(`Failed on "${toCsv(tx).trim()}": ${err.message}`);
                 }
             });
-            if ((++processedCount >= batchSize && batchSize > 0) || done) {
+            if ((++processedCount >= batchSize && batchSize > 0) || !more) {
                 break;
             }
         }
