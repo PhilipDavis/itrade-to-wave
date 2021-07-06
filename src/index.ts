@@ -58,6 +58,7 @@ const bad = `${Color.Bright}${Color.FgRed}✘${Color.Reset}`;
 
     console.log('Launching browser...');
     const waveDriver = await WaveDriver.launch();
+    let processedCount = 0;
     try {
         console.log('Logging into Wave...');
         await waveDriver.login(login, password);
@@ -68,7 +69,6 @@ const bad = `${Color.Bright}${Color.FgRed}✘${Color.Reset}`;
         const txProcessor = new TransactionProcessor(txPage, cashAccountName, equitiesAccountName);
 
         console.log('Ready to begin');
-        let processedCount = 0;
         while (true) {
             const more = await stateManager.withNextTransaction(async (tx, holding) => {
                 tx.type === TransactionType.CashDiv
@@ -86,13 +86,14 @@ const bad = `${Color.Bright}${Color.FgRed}✘${Color.Reset}`;
                 break;
             }
         }
-        console.log(`Processed ${processedCount} transactions`);
     }
     catch (err) {
         console.error(err.message);
         exitCode = 1;
     }
     finally {
+        console.log(`Processed ${Color.Bright}${processedCount}${Color.Reset} transactions`);
+
         console.log('Closing browser...');
         await waveDriver.close();
     }
