@@ -27,6 +27,15 @@ const transactionsCsvFilename = loadEnv('CSV');
 const holdingsJsonFilename = loadEnv('HOLDINGS_JSON');
 const batchSize = parseInt(loadEnv('BATCH_SIZE'), 10);
 
+const Color = {
+    Reset: "\x1b[0m",
+    Bright: "\x1b[1m",
+    FgGreen: "\x1b[32m",
+    FgRed: "\x1b[31m",
+    FgWhite: "\x1b[37m",
+};
+const good = `${Color.Bright}${Color.FgGreen}✓${Color.Reset}`;
+const bad = `${Color.Bright}${Color.FgRed}✘${Color.Reset}`;
 
 (async () => {
     let exitCode = 0;
@@ -50,8 +59,8 @@ const batchSize = parseInt(loadEnv('BATCH_SIZE'), 10);
         while (true) {
             const done = await stateManager.withNextTransaction(async (tx, holding) => {
                 tx.type === TransactionType.CashDiv
-                    ? console.log(`Processing ${tx.type} ${tx.symbol} $${tx.settlementAmount}...`)
-                    : console.log(`Processing ${tx.type} ${tx.qty} ${tx.symbol}...`);
+                    ? console.log(`Processing ${Color.Bright}${tx.type} ${tx.symbol} $${tx.settlementAmount}${Color.Reset}...`)
+                    : console.log(`Processing ${Color.Bright}${tx.type} ${tx.qty} ${tx.symbol}${Color.Reset}...`);
                 
                 try {
                     return await txProcessor.process(tx, holding);
