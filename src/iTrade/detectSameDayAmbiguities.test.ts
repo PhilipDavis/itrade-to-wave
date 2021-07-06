@@ -36,6 +36,16 @@ describe('detectSameDayAmbiguities' , () => {
             expect(result).toHaveLength(0);
         });
 
+        it('returns an empty array when same day transactions have no conflict', () => {
+            const transactions = [
+                makeTx('BUY', 'FOO', 6),
+                makeTx('REI', 'FOO', 6),
+                makeTx('CASH DIV', 'FOO', 6),
+            ];
+            const result = detectSameDayAmbiguities(transactions);
+            expect(result).toHaveLength(0);
+        });
+
         it('returns same day buys and sells of different symbols', () => {
             const transactions = [
                 makeTx('BUY', 'FOO', 1),

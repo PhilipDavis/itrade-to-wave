@@ -42,6 +42,10 @@ export function detectSameDayAmbiguities(transactions: Transaction[]): Transacti
     // }
     //
     for (const tx of transactions) {
+        if (problemTransactionTypes.indexOf(tx.type) < 0) {
+            // Ignore transaction types that don't cause problems
+            continue;
+        }
         const key = makeKey(tx);
         const transactionsByType = transactionsBySymbolAndDate[key] || {};
         const matches = transactionsByType[tx.type] || [];
