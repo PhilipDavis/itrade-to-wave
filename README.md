@@ -9,11 +9,21 @@ A script to automate the import of stock transactions from Scotia iTrade to Wave
 - When a given stock has buy and sell transactions on the same day, the order of transactions in the CSV is undefined.
     - When this condition is identified, the process will indicate which lines need disambiguation.
     - Add a number at the end of the line to indicate the relative ordering of the lines. For example:
-        - FOO CORP,FOO,05-Jul-2021,07-Jul-2021,CAD,SELL,1000.00,CAD,11.200,11190.01,*4*
-        - FOO CORP,FOO,05-Jul-2021,07-Jul-2021,CAD,BUY,1000.00,CAD,10.000,-10009.99,*1*
-        - FOO CORP,FOO,05-Jul-2021,07-Jul-2021,CAD,BUY,1000.00,CAD,10.200,-10209.99,*3*
-        - FOO CORP,FOO,05-Jul-2021,07-Jul-2021,CAD,SELL,1000.00,CAD,11.000,10990.01,*2*
-    - You can also manually rearrange the lines to be in order -- but the relative index is still required 
+```
+        FOO CORP,FOO,05-Jul-2021,07-Jul-2021,CAD,SELL,1000.00,CAD,11.200,11190.01,
+        FOO CORP,FOO,05-Jul-2021,07-Jul-2021,CAD,BUY,1000.00,CAD,10.000,-10009.99,
+        FOO CORP,FOO,05-Jul-2021,07-Jul-2021,CAD,BUY,1000.00,CAD,10.200,-10209.99,
+        FOO CORP,FOO,05-Jul-2021,07-Jul-2021,CAD,SELL,1000.00,CAD,11.000,10990.01,
+```
+
+  - Becomes this:
+
+```
+        FOO CORP,FOO,05-Jul-2021,07-Jul-2021,CAD,SELL,1000.00,CAD,11.200,11190.01,4
+        FOO CORP,FOO,05-Jul-2021,07-Jul-2021,CAD,BUY,1000.00,CAD,10.000,-10009.99,1
+        FOO CORP,FOO,05-Jul-2021,07-Jul-2021,CAD,BUY,1000.00,CAD,10.200,-10209.99,3
+        FOO CORP,FOO,05-Jul-2021,07-Jul-2021,CAD,SELL,1000.00,CAD,11.000,10990.01,2
+```
 
 
 ## Caveats
@@ -53,7 +63,7 @@ program if all tests pass.
 4. wait until completion and verify that all tests pass
 5. Log into Wave and manually delete the test entries
 
-### Prepare your Inputs
+### Prepare your Inputs and Run
 1. Download your transactions from iTrade
 2. Manually enter your holdings in data/holdings.json (refer to data/holdings.sample.json)
 3. Copy the .env.sample to .env and edit it to contain your details
