@@ -10,19 +10,19 @@ A script to automate the import of stock transactions from Scotia iTrade to Wave
     - When this condition is identified, the process will indicate which lines need disambiguation.
     - Add a number at the end of the line to indicate the relative ordering of the lines. For example:
 ```
-        FOO CORP,FOO,05-Jul-2021,07-Jul-2021,CAD,SELL,1000.00,CAD,11.200,11190.01,
+        FOO CORP,FOO,05-Jul-2021,07-Jul-2021,CAD,SELL,-1000.00,CAD,11.200,11190.01,
         FOO CORP,FOO,05-Jul-2021,07-Jul-2021,CAD,BUY,1000.00,CAD,10.000,-10009.99,
         FOO CORP,FOO,05-Jul-2021,07-Jul-2021,CAD,BUY,1000.00,CAD,10.200,-10209.99,
-        FOO CORP,FOO,05-Jul-2021,07-Jul-2021,CAD,SELL,1000.00,CAD,11.000,10990.01,
+        FOO CORP,FOO,05-Jul-2021,07-Jul-2021,CAD,SELL,-1000.00,CAD,11.000,10990.01,
 ```
 
   - Becomes this:
 
 ```
-        FOO CORP,FOO,05-Jul-2021,07-Jul-2021,CAD,SELL,1000.00,CAD,11.200,11190.01,4
+        FOO CORP,FOO,05-Jul-2021,07-Jul-2021,CAD,SELL,-1000.00,CAD,11.200,11190.01,4
         FOO CORP,FOO,05-Jul-2021,07-Jul-2021,CAD,BUY,1000.00,CAD,10.000,-10009.99,1
         FOO CORP,FOO,05-Jul-2021,07-Jul-2021,CAD,BUY,1000.00,CAD,10.200,-10209.99,3
-        FOO CORP,FOO,05-Jul-2021,07-Jul-2021,CAD,SELL,1000.00,CAD,11.000,10990.01,2
+        FOO CORP,FOO,05-Jul-2021,07-Jul-2021,CAD,SELL,-1000.00,CAD,11.000,10990.01,2
 ```
 
 
