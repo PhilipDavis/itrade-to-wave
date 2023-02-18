@@ -3,12 +3,16 @@ export type TransactionType =
     | 'SELL'
     | 'CASH DIV'
     | 'REI'
+    | 'RTC'
+    | 'TRANSFER'
 ;
 export const TransactionType = {
     Buy: 'BUY' as TransactionType,
     Sell: 'SELL' as TransactionType,
     CashDiv: 'CASH DIV' as TransactionType,
     Held: 'REI' as TransactionType,
+    ReturnOfCapital: 'RTC' as TransactionType,
+    Transfer: 'TRANSFER' as TransactionType,
     // Note: When adding a new transaction type, decide if the new type
     //       also needs to be added to the problemTransactionTypes
     //       array in src/iTrade/detectSameDayAmbiguities.ts

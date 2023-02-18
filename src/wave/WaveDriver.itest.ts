@@ -9,16 +9,11 @@ jest.setTimeout(90000);
 describe('WaveDriver', () => {
     let wave: WaveDriver;
 
-    afterEach(async () => {
-        wave && await wave.close();
-    });
+    it('can connect and load the transaction page', async () => {
+        const wsUrl = ''; // TODO: read from Chrome (or manually paste value here)
+        expect(wsUrl).not.toBe('');
 
-    it('can login and load the transaction page', async () => {
-        expect(process.env.WAVE_LOGIN).toBeDefined();
-        expect(process.env.WAVE_PASSWORD).toBeDefined();
-
-        wave = await WaveDriver.launch();
-        await wave.login(process.env.WAVE_LOGIN!, process.env.WAVE_PASSWORD!);
+        wave = await WaveDriver.connect(wsUrl);
 
         await wave.loadTransactionsPage();
     });

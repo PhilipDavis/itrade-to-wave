@@ -23,14 +23,13 @@ describe('WaveDriver', () => {
     // I'm not too concerned about the login functionality.
     // The primary goal is to test transaction entry.
     beforeAll(async () => {
-        expect(process.env.WAVE_LOGIN).toBeDefined();
-        expect(process.env.WAVE_PASSWORD).toBeDefined();
+        const wsUrl = ''; // TODO: read from Chrome (or manually paste value here)
+        expect(wsUrl).not.toBe('');
+
         expect(process.env.WAVE_CASH_ACCOUNT).toBeDefined();
         expect(process.env.WAVE_EQUITIES_ACCOUNT).toBeDefined();
 
-        wave = await WaveDriver.launch();
-        await wave.login(process.env.WAVE_LOGIN!, process.env.WAVE_PASSWORD!);
-        
+        wave = await WaveDriver.connect(wsUrl);
         txPage = await wave.loadTransactionsPage();
     });
 
@@ -107,6 +106,35 @@ describe('WaveDriver', () => {
         expect(result).toMatchObject({
             acb: 0.80,
             qty: 200,
+        });
+    });
+
+    it('can record a return of capital', async () => {
+        const symbol = '*** TEST RTC ***';
+        const holding: Holding = { acb: 10.00, qty: 500 };
+        const processor = new TransactionProcessor(txPage, cashAccountName, equitiesAccountName);
+
+        const result = await processor.process({
+            // Note: quantity will be read from this description string, not the qty field nor the current stock qty!
+            desc: 'TEST ENTRY BARRICK GOLD CORP RTN OF CAPTL     500 SHS REC 08/31/21 PAY 09/15/21      ',
+            symbol,
+            transactionDate: new Date(2021, 8, 15),
+            settlementDate: new Date(2021, 8, 15),
+            accountCurrency: 'CAD',
+            type: 'RTC',
+            qty: 0,
+            currency: 'CAD',
+            unitPrice: 0,
+            settlementAmount: 88.13,
+        }, holding);
+
+        // Verify the row appears in the transaction list
+        await expectRow('.transactions-list-v2__row--journal', 'Sep 15, 2021', 'Return of capital paid on 500 *** TEST RTC ***', 'Journal entry', '$88.13');
+
+        // Verify the ACB has decreased
+        expect(result).toMatchObject({
+            acb: 9.82374,
+            qty: 500,
         });
     });
 

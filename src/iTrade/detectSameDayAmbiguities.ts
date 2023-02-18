@@ -50,7 +50,7 @@ export function detectSameDayAmbiguities(transactions: Transaction[]): Transacti
         const transactionsByType = transactionsBySymbolAndDate[key] || {};
         const matches = transactionsByType[tx.type] || [];
         transactionsByType[tx.type] = [ ...matches, tx ];
-        transactionsBySymbolAndDate[key] = transactionsByType;
+        transactionsBySymbolAndDate[key] = transactionsByType as any;
     }
 
     //

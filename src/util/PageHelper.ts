@@ -19,27 +19,33 @@ export class PageHelper {
         await this.page.waitForFunction(`(cn, t) => {
             const elements = [ ...document.getElementsByClassName(cn) ];
             return elements.find(el => el.innerText === t)
-        }`, options, className, text);
+        }`, options as any, className, text);
     }
 
     protected async clickElementWithText(className: string, text: string) {
         const handle = await this.page.evaluateHandle((cn: string, t: string) => {
-            const elements = document.getElementsByClassName(cn);
-            for (let i = 0; i < elements.length; i++) {
-                const element = elements[i] as HTMLElement;
-                if (element.innerText === t) {
-                    return element;
-                }
-            }
+            const elements = [].slice.call(document.getElementsByClassName(cn));
+            const element = elements.find(e => e.innerText === t);
+            element?.click();
+            return element;
         }, className, text);
 
         const element = handle && handle.asElement();
         if (!element) {
-            throw new Error(`Failed to find '${text}'`);
+            throw new Error(`Failed to find element with text '${text}' and class '${className}'`);
         }
-        await element.click();
     }
 
+    protected async findElementWithText(className: string, text: string) {
+        const handle = await this.page.evaluateHandle((cn: string, t: string) => {
+            const elements = [].slice.call(document.getElementsByClassName(cn));
+            return elements.find(e => e.innerText === t);
+        }, className, text);
+
+        const element = handle && handle.asElement();
+        return !!element;
+    }
+    
     //
     // Helper function to overwrite the contents of an input field.
     // Note: when the target uses React, we can't simply replace

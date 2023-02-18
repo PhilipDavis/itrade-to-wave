@@ -5,6 +5,8 @@ const ValidTransactions = [
     'SELL',
     'CASH DIV',
     'REI',
+    'RTC',
+    'TRANSFER', // Going to ignore these... transfers added automatically elsewhere
 ];
 
 //

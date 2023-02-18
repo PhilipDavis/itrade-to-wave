@@ -28,10 +28,17 @@ export class TransactionProcessor {
             case TransactionType.CashDiv:
                 return await this.recordCashDividend(tx, holding);
 
+            case TransactionType.ReturnOfCapital:
+                return await this.recordReturnOfCapital(tx, holding);
+    
             case TransactionType.Held:
                 // Funds being held/released for reinvestment.
                 // These transactions are just informational and don't get
                 // sent to Wave because nothing is moving between accounts.
+                return holding;
+
+            case TransactionType.Transfer:
+                // Ignore
                 return holding;
 
             default:
@@ -147,5 +154,38 @@ export class TransactionProcessor {
         await this.txPage.addJournalTransaction(tx.settlementDate, description, tx.desc, journalLines);
 
         return holding;
+    }
+
+    async recordReturnOfCapital(tx: Transaction, holding: Holding) {
+        // Read quantity from the description because iTrade does not put it in the quantity field
+        const regex = /RTN OF CAPTL\s+(\d+) SHS REC \d\d\/\d\d\/\d\d PAY \d\d\/\d\d\/\d\d/;
+        const match = regex.exec(tx.desc);
+        if (!match) {
+            throw new Error(`Failed to find share quantity in return of capital "${tx.desc}"`);
+        }
+        const qty = parseInt(match[1], 10);
+
+        const description = `Return of capital paid on ${qty} ${tx.symbol}`;
+
+        const journalLines: JournalLine[] = [
+            {
+                type: 'debit',
+                accountName: this.cashAccount,
+                amount: tx.settlementAmount,
+            },
+            {
+                type: 'credit',
+                accountName: this.equitiesAccount,
+                amount: tx.settlementAmount,
+            },            
+        ];
+
+        // Send the transaction to Wave
+        await this.txPage.addJournalTransaction(tx.settlementDate, description, tx.desc, journalLines);
+
+        return {
+            acb: holding.acb - tx.settlementAmount,
+            qty: holding.qty,
+        };
     }
 }

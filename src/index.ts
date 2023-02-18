@@ -19,13 +19,12 @@ process.stdin
 
 const loadEnv = (name: string) => process.env[name] || (() => { throw new Error(`Missing ${name} environment parameter`) })();
 
-const login = loadEnv('WAVE_LOGIN');
-const password = loadEnv('WAVE_PASSWORD');
 const cashAccountName = loadEnv('WAVE_CASH_ACCOUNT');
 const equitiesAccountName = loadEnv('WAVE_EQUITIES_ACCOUNT');
 const transactionsCsvFilename = loadEnv('CSV');
 const holdingsJsonFilename = loadEnv('HOLDINGS_JSON');
 const batchSize = parseInt(loadEnv('BATCH_SIZE'), 10);
+const chromePort = parseInt(loadEnv('CHROME_PORT'), 10) || 9222;
 
 const Color = {
     Reset: "\x1b[0m",
@@ -56,13 +55,13 @@ const bad = `${Color.Bright}${Color.FgRed}✘${Color.Reset}`;
         process.exit(2);
     }
 
-    console.log('Launching browser...');
-    const waveDriver = await WaveDriver.launch();
+    console.log('Determining websocket URL...');
+    const wsUrl = "ws://127.0.0.1:92222/devtools/browser/YOUR-GUID-HERE"; // TODO: pull from http://127.0.0.1:9222/json/version 
+
+    console.log('Connecting to browser...');
+    const waveDriver = await WaveDriver.connect(wsUrl);
     let processedCount = 0;
     try {
-        console.log('Logging into Wave...');
-        await waveDriver.login(login, password);
-
         console.log('Navigating to the Transactions page...');
         const txPage = await waveDriver.loadTransactionsPage();
 
@@ -71,7 +70,10 @@ const bad = `${Color.Bright}${Color.FgRed}✘${Color.Reset}`;
         console.log('Ready to begin');
         while (true) {
             const more = await stateManager.withNextTransaction(async (tx, holding) => {
-                tx.type === TransactionType.CashDiv
+                tx.type === TransactionType.CashDiv ||
+                    tx.type === TransactionType.ReturnOfCapital ||
+                    tx.type === TransactionType.Transfer ||
+                    tx.type === TransactionType.Held
                     ? console.log(`Processing ${Color.Bright}${tx.type} ${tx.symbol} $${tx.settlementAmount}${Color.Reset}...`)
                     : console.log(`Processing ${Color.Bright}${tx.type} ${Math.abs(tx.qty)} ${tx.symbol}${Color.Reset}...`);
                 
@@ -79,7 +81,7 @@ const bad = `${Color.Bright}${Color.FgRed}✘${Color.Reset}`;
                     return await txProcessor.process(tx, holding);
                 }
                 catch (err) {
-                    throw new Error(`Failed on "${toCsv(tx).trim()}": ${err.message}`);
+                    throw new Error(`Failed on "${toCsv(tx).trim()}": ${(err as Error).message}`);
                 }
             });
             if ((++processedCount >= batchSize && batchSize > 0) || !more) {
@@ -88,14 +90,14 @@ const bad = `${Color.Bright}${Color.FgRed}✘${Color.Reset}`;
         }
     }
     catch (err) {
-        console.error(err.message);
+        console.error((err as Error).message);
         exitCode = 1;
     }
     finally {
         console.log(`Processed ${Color.Bright}${processedCount}${Color.Reset} transactions`);
 
-        console.log('Closing browser...');
-        await waveDriver.close();
+        //console.log('Closing browser...');
+        //await waveDriver.close();
     }
 
     console.log(`Exiting with code ${exitCode}`);

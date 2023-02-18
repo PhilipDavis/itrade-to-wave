@@ -18,12 +18,10 @@ describe('WaveDriver', () => {
     // I'm not too concerned about the login functionality.
     // The primary goal is to test transaction entry.
     beforeAll(async () => {
-        expect(process.env.WAVE_LOGIN).toBeDefined();
-        expect(process.env.WAVE_PASSWORD).toBeDefined();
+        const wsUrl = ''; // TODO: read from Chrome (or manually paste value here)
+        expect(wsUrl).not.toBe('');
 
-        wave = await WaveDriver.launch();
-        await wave.login(process.env.WAVE_LOGIN!, process.env.WAVE_PASSWORD!);
-        
+        wave = await WaveDriver.connect(wsUrl);        
         txPage = await wave.loadTransactionsPage();
     });
 

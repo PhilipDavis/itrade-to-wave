@@ -29,18 +29,17 @@ export class TransactionsPage extends PageHelper {
     static SelectMenuSelector = '.wv-select__menu';
     static SelectMenuOptionSelector = `${TransactionsPage.SelectMenuSelector} .${TransactionsPage.SelectOptionClass}`;
 
-    static TxModalOpenSelector = '.transactions-list-v2__anchor-transaction-modal.wv-modal--open';
-    static TxSelector = '.transactions-list-v2__details';
+    static TxSelector = '.transactions-list-v2__anchor-transaction.is-open';
     static TxDateFieldSelector = `${TransactionsPage.TxSelector} .wv-datepicker .wv-input`;
     static TxDescFieldSelector = `${TransactionsPage.TxSelector} .transactions-list-v2__anchor-transaction__edit__field--description .wv-input`;
     static TxAccountFieldSelector = `${TransactionsPage.TxSelector} .transactions-list-v2__anchor-transaction__edit__field--account__select`;
     static TxAmountFieldSelector = `${TransactionsPage.TxSelector} .anchor-transaction__line-item-amount__account-amount .wv-input`;
-    static TxCategoryFieldSelector = `${TransactionsPage.TxSelector} .transactions-list-v2__anchor-transaction__line-items__line-item__fields__form-field`;
+    static TxCategoryFieldSelector = `${TransactionsPage.TxSelector} .category-select`;
     static TxNotesFieldSelector = '.transactions-list-v2__anchor-transaction__notes textarea';
-    static TxSaveButtonSelector = `${TransactionsPage.TxModalOpenSelector} .transactions-list-V2__transaction__footer__item.${TransactionsPage.PrimaryButtonClass}`;
+    static TxSaveButtonSelector = `${TransactionsPage.TxSelector} .wv-fullscreen-modal__footer .${TransactionsPage.PrimaryButtonClass}`;
 
     static JournalModalOpenSelector = '.wv-modal.transactions-list-v2__journal-entry-modal.wv-modal--open';
-    static JournalEntrySelector = '.transactions-list-v2__details__edit.transactions-list-v2__journal-entry';
+    static JournalEntrySelector = '.transactions-list-v2__journal-entry-modal.is-open';
     static JournalSelector = '.transactions-list-v2__journal-entry';
     static JournalDateFieldSelector = `${TransactionsPage.JournalEntrySelector} .wv-datepicker .wv-input`;
     static JournalDescriptionFieldSelector = `${TransactionsPage.JournalEntrySelector} .transactions-list-v2__journal-entry__journal-entry-fields__description-form-field .wv-input`;
@@ -49,12 +48,13 @@ export class TransactionsPage extends PageHelper {
     static JournalCreditColumnSelector = TransactionsPage.JournalColumnSelector(2);
     static JournalDebitAmountSelector = (row: number) => `${TransactionsPage.JournalDebitColumnSelector} .line-item-box:nth-child(${row}) .wv-input--amount`;
     static JournalCreditAmountSelector = (row: number) => `${TransactionsPage.JournalCreditColumnSelector} .line-item-box:nth-child(${row}) .wv-input--amount`;
-    static JournalDebitAccountToggleSelector = (row: number) => `${TransactionsPage.JournalDebitColumnSelector} .line-item-box:nth-child(${row}) .wv-select__toggle`;
-    static JournalCreditAccountToggleSelector = (row: number) => `${TransactionsPage.JournalCreditColumnSelector} .line-item-box:nth-child(${row}) .wv-select__toggle`;
+    static JournalDebitAccountToggleSelector = (row: number) => `${TransactionsPage.JournalDebitColumnSelector} .line-item-box:nth-child(${row}) .category-select`;
+    static JournalCreditAccountToggleSelector = (row: number) => `${TransactionsPage.JournalCreditColumnSelector} .line-item-box:nth-child(${row}) .category-select`;
     static JournalAddCreditButtonSelector = `${TransactionsPage.JournalCreditColumnSelector} button.wv-button--small`;
     static JournalAddDebitButtonSelector = `${TransactionsPage.JournalDebitColumnSelector} button.wv-button--small`;
     static JournalNotesFieldSelector = '.transactions-list-v2__details__notes.transactions-list-v2__journal-entry textarea';
 
+    static ToastProgressSelector = '.wv-toast--open .wv-toast-progress';
 
     private constructor(page: Page) {
         super(page);
@@ -93,7 +93,7 @@ export class TransactionsPage extends PageHelper {
 
         // Enter the notes, if non-empty
         if (notes) {
-            await this.clickElementWithText(TransactionsPage.NavItemClass, TransactionsPage.NotesLabel);
+            //await this.clickElementWithText(TransactionsPage.NavItemClass, TransactionsPage.NotesLabel);
             const notesField = await this.page.waitForSelector(TransactionsPage.TxNotesFieldSelector);
             notesField && await notesField.type(notes);
         }
@@ -102,7 +102,7 @@ export class TransactionsPage extends PageHelper {
         await this.page.click(TransactionsPage.TxSaveButtonSelector);
 
         // Wait for the dialog to disappear
-        await this.page.waitForSelector(TransactionsPage.TxModalOpenSelector, { hidden: true });
+        await this.page.waitForSelector(TransactionsPage.TxSelector, { hidden: true });
 
         // Give the page time to react (e.g. send data to server, redraw DOM, ...)
         await this.delay(1000);
@@ -121,6 +121,7 @@ export class TransactionsPage extends PageHelper {
         await this.page.waitForSelector(TransactionsPage.SelectMenuOptionSelector);
 
         // Select the menu option with the given text
+        await this.waitForElementWithText(TransactionsPage.SelectOptionClass, optionText);
         await this.clickElementWithText(TransactionsPage.SelectOptionClass, optionText);
 
         // Wait for the menu to disappear
@@ -189,5 +190,20 @@ export class TransactionsPage extends PageHelper {
         // Give the page time to react (e.g. send data to server, redraw DOM, ...)
         await this.delay(1000);
         await this.waitForNetworkIdle();
+
+        const toastProgress = await this.page.$(TransactionsPage.ToastProgressSelector);
+        if (toastProgress) {
+            // Note: this doesn't work but I've finished importing transactions...
+            // So, check it out next year. The problem is that a 'toast' pops up
+            // saying the transaction was saved... but it prevents the next 
+            // transaction (if it's a journal entry) from selecting the debit
+            // category (likely a z-index issue). If impossible to click... try
+            // other things like assigning -1 z-index, setting pointer-events to
+            // none, display to none, removing the is-open class etc.
+            try {
+                await toastProgress.click();
+            }
+            catch {}
+        }
     }
 }
