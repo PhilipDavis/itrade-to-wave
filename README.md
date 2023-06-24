@@ -65,7 +65,6 @@ program if all tests pass.
     ```
     "%PROGRAMFILES(X86)%\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222
     ```
-TODO: finish the part of code that reads the websocket URL from Chrome (http://127.0.0.1:9222/json/version)
 6. Navigate to Wave and login to your account
 7. type `npm run start` in the project directory
 

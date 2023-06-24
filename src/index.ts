@@ -56,10 +56,14 @@ const bad = `${Color.Bright}${Color.FgRed}✘${Color.Reset}`;
     }
 
     console.log('Determining websocket URL...');
-    const wsUrl = "ws://127.0.0.1:92222/devtools/browser/YOUR-GUID-HERE"; // TODO: pull from http://127.0.0.1:9222/json/version 
+    // Hack to load ESM module in CommonJS TypeScript project
+    const fetchLib = await new Promise<any>((resolve, reject) => eval("import('node-fetch')").then(resolve, reject));
+    const fetch = fetchLib.default;
+    const versionJsonResponse = await fetch(`http://127.0.0.1:${chromePort}/json/version`);
+    const { webSocketDebuggerUrl } = await versionJsonResponse.json() as any;
 
     console.log('Connecting to browser...');
-    const waveDriver = await WaveDriver.connect(wsUrl);
+    const waveDriver = await WaveDriver.connect(webSocketDebuggerUrl);
     let processedCount = 0;
     try {
         console.log('Navigating to the Transactions page...');
