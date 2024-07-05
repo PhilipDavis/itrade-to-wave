@@ -72,3 +72,6 @@ program if all tests pass.
 Buys and sells of the same stock on the same day are exported in random order.
 The program detects this scenario and will let you know which rows need to be updated.
 Once you've disambiguated the rows, rerun the program and it will continue if everything has been fixed.
+
+## Hi, BrowserStack!
+This project is tested with BrowserStack
